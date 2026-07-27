@@ -3,7 +3,12 @@ name: XAUUSD Doji Alerts
 on:
   schedule:
     - cron: "*/5 * * * *"     # every 5 minutes (UTC; GitHub may delay a few min)
-  workflow_dispatch:           # lets you press "Run" manually to test
+  workflow_dispatch:           # lets you press "Run workflow" manually
+    inputs:
+      send_test:
+        description: "Send a test Telegram message instead of checking candles"
+        type: boolean
+        default: false
 
 jobs:
   doji:
@@ -31,6 +36,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TWELVEDATA_KEY:   ${{ secrets.TWELVEDATA_KEY }}
           RUN_ONCE: "1"
+          SEND_TEST: ${{ github.event.inputs.send_test }}
         run: python doji_telegram_bot.py --once
 
       # save the memory so the same candle isn't alerted twice next run
