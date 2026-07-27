@@ -125,20 +125,38 @@ def send_telegram(text):
 
 # ── main check ──
 def check_tf(interval, state):
-    candles = fetch_candles(interval)
-    c = last_closed(candles, interval)
-    if not c:
+    candles = fetch_candles(interval, n=12)
+    mins = interval_minutes(interval)
+    now = dt.datetime.utcnow()
+    # keep only CLOSED candles, oldest -> newest
+    closed = []
+    for c in candles:
+        start = dt.datetime.strptime(c["t"], "%Y-%m-%d %H:%M:%S")
+        if start + dt.timedelta(minutes=mins) <= now + dt.timedelta(seconds=5):
+            closed.append(c)
+    closed.sort(key=lambda c: c["t"])
+    if not closed:
         return
-    if not is_symmetric_red_doji(c):
+
+    last_alerted = state.get(interval, "")
+    # first time we see this timeframe: set a baseline so we don't spam history
+    if not last_alerted:
+        state[interval] = closed[-1]["t"]
+        save_state(state)
         return
-    if state.get(interval) == c["t"]:            # already alerted this candle
-        return
-    state[interval] = c["t"]
-    save_state(state)
-    tf = interval.replace("min", "m")
-    msg = f"🔴 Red Doji — {SYMBOL} {tf} @ {c['c']:.2f}"
-    send_telegram(msg)
-    print("ALERT", interval, c["t"])
+
+    newest = last_alerted
+    for c in closed:
+        if c["t"] <= last_alerted:        # already handled in a previous run
+            continue
+        if is_symmetric_red_doji(c):
+            tf = interval.replace("min", "m")
+            send_telegram(f"🔴 Red Doji — {SYMBOL} {tf} @ {c['c']:.2f}")
+            print("ALERT", interval, c["t"])
+        newest = c["t"]                    # advance past every candle we've now seen
+    if newest != last_alerted:
+        state[interval] = newest
+        save_state(state)
 
 def run_once():
     state = load_state()
