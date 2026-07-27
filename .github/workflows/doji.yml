@@ -1,0 +1,42 @@
+name: XAUUSD Doji Alerts
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"     # every 5 minutes (UTC; GitHub may delay a few min)
+  workflow_dispatch:           # lets you press "Run" manually to test
+
+jobs:
+  doji:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      # restore the "already alerted" memory from the previous run
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: .doji_state.json
+          key: doji-state-${{ github.run_id }}
+          restore-keys: doji-state-
+
+      - name: Check for a new red doji
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TWELVEDATA_KEY:   ${{ secrets.TWELVEDATA_KEY }}
+          RUN_ONCE: "1"
+        run: python doji_telegram_bot.py --once
+
+      # save the memory so the same candle isn't alerted twice next run
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .doji_state.json
+          key: doji-state-${{ github.run_id }}
