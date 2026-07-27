@@ -178,7 +178,15 @@ def check_config():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--once", action="store_true", help="single check then exit")
+    ap.add_argument("--test", action="store_true", help="send a test Telegram message then exit")
     args = ap.parse_args()
+
+    # test mode: prove the Telegram path works (no market data needed)
+    if args.test or os.getenv("SEND_TEST") == "true":
+        send_telegram("✅ Doji bot test — working. XAUUSD watcher is live.")
+        print("test message sent")
+        return
+
     check_config()
     if args.once or os.getenv("RUN_ONCE"):
         run_once()
